@@ -86,9 +86,6 @@ if sequence_length != x_dev.shape[1]:
     print("Adjusting sequence length for actual size")
     sequence_length = x_dev.shape[1]
 
-print("x_train shape:", x_train.shape)
-print("x_dev shape:", x_dev.shape)
-print("Vocabulary Size: {:d}".format(len(vocabulary_inv)))
 
 # Prepare embedding layer weights and convert inputs for static model
 print("Model type is", model_type)
@@ -115,11 +112,16 @@ else:
     input_shape = (sequence_length,)
 
 model_input = Input(shape=input_shape)
+weights = np.array([v for v in embedding_weights.values()])#用word2vec训练的模型作为初始化权重
 # Static model does not have embedding layer
 if model_type == "CNN-static":
     z = model_input
 else:
-    z = Embedding(len(vocabulary_inv), embedding_dim, input_length=sequence_length, name="embedding")(model_input)
+    z = Embedding(len(vocabulary_inv),
+                  embedding_dim, 
+                  input_length=sequence_length, 
+                   weights=[weights],
+                  name="embedding")(model_input)
     #input_dim字典长度,output_dim代表全连接嵌入的维度,input_length：当输入序列的长度固定时，该值为其长度。
 z = Dropout(dropout_prob[0])(z)
 #Dropout是在一次循环中我们先随机选择神经层中的一些单元并将其临时隐藏，然后再进行该次循环中神经网络的训练和优化过程。
@@ -148,13 +150,6 @@ model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"]
 #loss是损失函数，计算预测值和真实值的偏差
 #optimizer是优化器，用来更新和计算影响模型训练和模型输出的网络参数，使其逼近或达到最优值，从而最小化(或最大化)损失函数E(x)
 #metrics是性能评估函数
-
-# Initialize weights with word2vec
-if model_type == "CNN-non-static":
-    weights = np.array([v for v in embedding_weights.values()])
-    print("Initializing embedding layer with word2vec weights, shape", weights.shape)
-    embedding_layer = model.get_layer("embedding")
-    embedding_layer.set_weights([weights])
 
 #Train the model
 model.fit(x_train, y_train, batch_size=batch_size, epochs=num_epochs,
